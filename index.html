@@ -3,31 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <title>FingerprintJS Example</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-    }
-    #visitorId {
-      font-weight: bold;
-      color: green;
-      font-size: 20px;
-    }
-  </style>
 </head>
 <body>
   <h2>Getting your device ID...</h2>
-  <p>Your device ID is: <span id="visitorId">Loading...</span></p>
 
   <script>
     const fpPromise = import('https://fpjscdn.net/v3/A4t9QOUpmyCYYLwaoANu')
-      .then(FingerprintJS => FingerprintJS.load({ region: "eu" }))
+      .then(FingerprintJS => FingerprintJS.load({ region: "eu" }));
 
     fpPromise
       .then(fp => fp.get())
       .then(result => {
         const visitorId = result.visitorId;
-        document.getElementById("visitorId").textContent = visitorId;
+        console.log(visitorId);
+        if (window.AndroidBridge && window.AndroidBridge.onFingerprintGenerated) {
+          window.AndroidBridge.onFingerprintGenerated(visitorId);
+        }
       });
   </script>
 </body>
