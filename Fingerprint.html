@@ -3,23 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <title>FingerprintJS Example</title>
-
 </head>
 <body>
-    <script>
-        // Initialize the agent on page load.
-        const fpPromise = import('https://fpjscdn.net/v3/A4t9QOUpmyCYYLwaoANu')
-          .then(FingerprintJS => FingerprintJS.load({
-            region: "eu"
-          }))
-      
-        // Get the visitorId when you need it.
-        fpPromise
-          .then(fp => fp.get())
-          .then(result => {
-            const visitorId = result.visitorId
-            console.log(visitorId)
-          })
-      </script>
+  <h2>Getting your device ID...</h2>
+  <script type="module">
+    // טוען את FingerprintJS מה-CDN
+    const fpPromise = import('https://fpjscdn.net/v3/A4t9QOUpmyCYYLwaoANu')
+      .then(FingerprintJS => FingerprintJS.load({ region: "eu" }));
+
+    fpPromise
+      .then(fp => fp.get())
+      .then(result => {
+        const visitorId = result.visitorId;
+        console.log("Visitor ID:", visitorId);
+
+        // אפשר גם להחזיר ל־Android אם אתה משתמש ב־WebView
+        if (window.AndroidBridge) {
+          window.AndroidBridge.onFingerprintGenerated(visitorId);
+        }
+
+        // מציג גם על המסך (כדי לבדוק בדפדפן)
+        document.body.innerHTML += `<p><b>Your ID:</b> ${visitorId}</p>`;
+      })
+      .catch(error => {
+        console.error("FingerprintJS error:", error);
+        document.body.innerHTML += `<p style="color:red;">Error generating fingerprint</p>`;
+      });
+  </script>
 </body>
 </html>
