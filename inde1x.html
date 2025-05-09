@@ -1,133 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>FingerprintJS Debug Logger</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #eee;
-      padding: 20px;
-    }
-    h2 {
-      color: #00d1ff;
-    }
-    pre {
-      background: #222;
-      padding: 12px;
-      border-radius: 6px;
-      max-height: 300px;
-      overflow: auto;
-    }
-    button {
-      margin: 6px 4px;
-      padding: 8px 14px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      background: #00d1ff;
-      color: #000;
-      font-weight: bold;
-    }
-    button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>FingerprintJS – Ultra Debug</title>
+<style>
+ body{font-family:Arial,Helvetica;background:#111;color:#eee;padding:20px}
+ h2{color:#00d1ff}
+ pre{background:#222;padding:12px;border-radius:6px;max-height:380px;overflow:auto}
+ button{margin:6px 4px;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;background:#00d1ff;color:#000;font-weight:bold}
+ button:disabled{opacity:.4;cursor:not-allowed}
+</style>
 </head>
 <body>
-  <h2>FingerprintJS Debug Logger</h2>
-  <p id="status">Initializing...</p>
-  <pre id="log"></pre>
-  <button id="downloadBtn" disabled>Download logs</button>
-  <button id="copyBtn" disabled>Copy to clipboard</button>
+<h2>FingerprintJS Ultra‑Debug Logger</h2>
+<p id="status">Initializing…</p>
+<pre id="log"></pre>
+<button id="downloadBtn" disabled>Download logs</button>
+<button id="copyBtn" disabled>Copy</button>
 
-  <script>
-    (function(){
-      const logBox = document.getElementById('log');
-      const status = document.getElementById('status');
-      const dlBtn  = document.getElementById('downloadBtn');
-      const cpBtn  = document.getElementById('copyBtn');
-      const logs   = [];
-      const t0     = performance.now();
+<script>
+(function(){
+  /* ---------- helpers ---------- */
+  const $=id=>document.getElementById(id);
+  const logBox=$('log'), status=$('status'), dl=$('downloadBtn'), cp=$('copyBtn');
+  const logs=[], t0=performance.now();
+  const mark=t=>+(performance.now()-t0).toFixed(1);
+  const add=(type,msg,x={})=>{logs.push({ts:Date.now(),rel:mark(),type,msg,...x});
+    logBox.textContent=JSON.stringify(logs,null,2);};
 
-      function addLog(type, msg, extra = {}) {
-        const entry = {
-          ts: Date.now(),
-          rel: +(performance.now() - t0).toFixed(1),
-          type,
-          msg,
-          ...extra
-        };
-        logs.push(entry);
-        logBox.textContent = JSON.stringify(logs, null, 2);
-      }
+  function finish(ok){
+    status.textContent=ok?'✔️ Finished – send the file':'❌ Error – send the file';
+    [dl,cp].forEach(b=>b.disabled=false);
+    const blob=new Blob([JSON.stringify(logs,null,2)],{type:'application/json'}),
+          url=URL.createObjectURL(blob);
+    dl.onclick=()=>{const a=document.createElement('a');a.href=url;a.download='fp_log.json';a.click();};
+    cp.onclick=async()=>{await navigator.clipboard.writeText(JSON.stringify(logs,null,2));cp.textContent='Copied!';};
+  }
 
-      function finish(success) {
-        status.textContent = success ?
-          '✔️ Finished – please send the log file.' :
-          '❌ Something went wrong – send the log file to the developer.';
-        dlBtn.disabled = cpBtn.disabled = false;
+  /* ---------- global error hooks ---------- */
+  window.onerror=(m,s,l,c,e)=>add('error','window.onerror',{msg:m,line:l,col:c,err:e?.message});
+  window.onunhandledrejection=e=>add('error','unhandledrejection',{reason:e.reason});
+  document.addEventListener('visibilitychange',()=>add('info','visibilitychange',{state:document.visibilityState}));
 
-        const blob = new Blob([JSON.stringify(logs, null, 2)], {type: 'application/json'});
-        const url  = URL.createObjectURL(blob);
-        dlBtn.onclick = () => {
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'fingerprint_log.json';
-          a.click();
-        };
-        cpBtn.onclick = async () => {
-          await navigator.clipboard.writeText(JSON.stringify(logs, null, 2));
-          cpBtn.textContent = 'Copied!';
-        };
-      }
+  /* ---------- env snapshot ---------- */
+  add('info','env',{
+    ua:navigator.userAgent,
+    language:navigator.language,
+    platform:navigator.platform,
+    cores:navigator.hardwareConcurrency,
+    mem:navigator.deviceMemory||'?GB',
+    screen:`${screen.width}x${screen.height}`,
+    connection:navigator.connection?{
+      type:navigator.connection.effectiveType,
+      down:navigator.connection.downlink,
+      rtt:navigator.connection.rtt
+    }:'n/a'
+  });
 
-      addLog('info', 'Importing FingerprintJS script…');
-      const importStart = performance.now();
+  /* nav‑timing */
+  const nav=performance.getEntriesByType('navigation')[0];
+  if(nav){
+    add('info','navTiming',{
+      dns:(nav.domainLookupEnd-nav.domainLookupStart)|0,
+      tcp:(nav.connectEnd-nav.connectStart)|0,
+      ssl:(nav.secureConnectionStart?nav.connectEnd-nav.secureConnectionStart:0)|0,
+      ttfb:(nav.responseStart-nav.requestStart)|0,
+      dom:(nav.domComplete-nav.startTime)|0
+    });
+  }
 
-      const watchdog = setTimeout(() => {
-        addLog('error', 'Timeout waiting for FingerprintJS', {timeoutSec: 10});
-        finish(false);
-      }, 10000);
+  /* ---------- watchdog ---------- */
+  const watchdog=setTimeout(()=>{add('error','Timeout 10s');finish(false);},1e4);
 
-      import('https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU')
-        .then(FingerprintJS => {
-          addLog('info', 'Library imported', {elapsed: (performance.now() - importStart).toFixed(1)});
-          return FingerprintJS.load({region: 'eu'});
-        })
-        .then(fp => {
-          addLog('info', 'Instance loaded – calling get()');
-          const getStart = performance.now();
-          return fp.get({extendedResult: true}).then(result => {
-            addLog('success', 'visitorId resolved', {
-              visitorId: result.visitorId,
-              requestId: result.requestId,
-              confidence: result.confidence?.score,
-              incognito: result.incognito,
-              browserName: result.browserName,
-              os: result.os,
-              elapsed: (performance.now() - getStart).toFixed(1)
-            });
-            clearTimeout(watchdog);
-            if (window.AndroidBridge?.onFingerprintGenerated) {
-              try {
-                window.AndroidBridge.onFingerprintGenerated(result.visitorId);
-                addLog('info', 'Called AndroidBridge.onFingerprintGenerated');
-              } catch (e) {
-                addLog('error', 'Bridge call failed', {err: e.message});
-              }
-            }
-            finish(true);
-          });
-        })
-        .catch(err => {
-          addLog('error', 'Exception', {err: err.message || String(err)});
-          clearTimeout(watchdog);
-          finish(false);
-        });
-    })();
-  </script>
+  /* ---------- FP flow (זהה לקוד המקורי) ---------- */
+  add('info','import script…');
+  import('https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU')
+    .then(lib=>{
+      add('info','script imported',{delta:mark()});
+      return lib.load({region:'eu'});
+    })
+    .then(fp=>{
+      add('info','instance loaded',{delta:mark()});
+      const tGet=performance.now();
+      return fp.get({extendedResult:true}).then(r=>{
+        add('success','visitorId',Object.assign({
+          elapsed:+(performance.now()-tGet).toFixed(1)
+        },{
+          visitorId:r.visitorId,
+          requestId:r.requestId,
+          confidence:r.confidence?.score,
+          incognito:r.incognito,
+          browser:r.browserName,
+          os:r.os
+        }));
+        if(window.AndroidBridge?.onFingerprintGenerated){
+          try{window.AndroidBridge.onFingerprintGenerated(r.visitorId);
+              add('info','AndroidBridge.called');}
+          catch(e){add('error','Bridge failed',{err:e.message});}
+        }
+        clearTimeout(watchdog);
+        finish(true);
+      });
+    })
+    .catch(err=>{clearTimeout(watchdog);add('error','Exception',{err:err.message});finish(false);});
+})();
+</script>
 </body>
 </html>
