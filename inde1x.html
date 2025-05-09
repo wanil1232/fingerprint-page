@@ -1,89 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Fingerprint Debug Logger</title>
-<style>
- body{font-family:Arial,Helvetica,sans-serif;background:#111;color:#eee;padding:20px}
- h2{color:#00d1ff}
- pre{background:#222;padding:12px;border-radius:6px;max-height:240px;overflow:auto}
- button{margin:6px 4px;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;background:#00d1ff;color:#000;font-weight:bold}
- button:disabled{opacity:0.4;cursor:not-allowed}
-</style>
+  <meta charset="UTF-8">
+  <title>FingerprintJS Debug Logger</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+    }
+    h2 {
+      color: #00d1ff;
+    }
+    pre {
+      background: #222;
+      padding: 12px;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow: auto;
+    }
+    button {
+      margin: 6px 4px;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #00d1ff;
+      color: #000;
+      font-weight: bold;
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  </style>
 </head>
 <body>
-  <h2>Fingerprint debug – please keep this tab open…</h2>
-  <p id="status">Starting…</p>
+  <h2>FingerprintJS Debug Logger</h2>
+  <p id="status">Initializing...</p>
   <pre id="log"></pre>
   <button id="downloadBtn" disabled>Download logs</button>
   <button id="copyBtn" disabled>Copy to clipboard</button>
 
-<script>
-(function(){
-  const logBox = document.getElementById('log');
-  const status = document.getElementById('status');
-  const dlBtn  = document.getElementById('downloadBtn');
-  const cpBtn  = document.getElementById('copyBtn');
-  const logs   = [];
-  const t0     = performance.now();
+  <script>
+    (function(){
+      const logBox = document.getElementById('log');
+      const status = document.getElementById('status');
+      const dlBtn  = document.getElementById('downloadBtn');
+      const cpBtn  = document.getElementById('copyBtn');
+      const logs   = [];
+      const t0     = performance.now();
 
-  function addLog(type,msg,extra={}) {
-    const entry = { ts: Date.now(), rel: +(performance.now()-t0).toFixed(1), type, msg, ...extra };
-    logs.push(entry);
-    logBox.textContent = JSON.stringify(logs, null, 2);
-  }
+      function addLog(type, msg, extra = {}) {
+        const entry = {
+          ts: Date.now(),
+          rel: +(performance.now() - t0).toFixed(1),
+          type,
+          msg,
+          ...extra
+        };
+        logs.push(entry);
+        logBox.textContent = JSON.stringify(logs, null, 2);
+      }
 
-  function finish(success){
-    status.textContent = success ?
-      '✔️ Finished – please send the log file.' :
-      '❌ Something went wrong – send the log file to the developer.';
-    dlBtn.disabled = cpBtn.disabled = false;
+      function finish(success) {
+        status.textContent = success ?
+          '✔️ Finished – please send the log file.' :
+          '❌ Something went wrong – send the log file to the developer.';
+        dlBtn.disabled = cpBtn.disabled = false;
 
-    // create downloadable blob
-    const blob = new Blob([JSON.stringify(logs,null,2)],{type:'application/json'});
-    const url  = URL.createObjectURL(blob);
-    dlBtn.onclick = () => { const a=document.createElement('a');a.href=url;a.download='fingerprint_log.json';a.click(); };
-    cpBtn.onclick = async () => { await navigator.clipboard.writeText(JSON.stringify(logs,null,2)); cpBtn.textContent='Copied!'; };
-  }
+        const blob = new Blob([JSON.stringify(logs, null, 2)], {type: 'application/json'});
+        const url  = URL.createObjectURL(blob);
+        dlBtn.onclick = () => {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'fingerprint_log.json';
+          a.click();
+        };
+        cpBtn.onclick = async () => {
+          await navigator.clipboard.writeText(JSON.stringify(logs, null, 2));
+          cpBtn.textContent = 'Copied!';
+        };
+      }
 
-  addLog('info','Importing FingerprintJS script…');
-  const importStart = performance.now();
+      addLog('info', 'Importing FingerprintJS script…');
+      const importStart = performance.now();
 
-  // timeout after 10 s
-  const watchdog = setTimeout(()=>{
-    addLog('error','Timeout waiting for FingerprintJS', {timeoutSec:10});
-    finish(false);
-  }, 10000);
+      const watchdog = setTimeout(() => {
+        addLog('error', 'Timeout waiting for FingerprintJS', {timeoutSec: 10});
+        finish(false);
+      }, 10000);
 
-  import('https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU')
-    .then(lib=>{
-      addLog('info','Library imported',{elapsed:(performance.now()-importStart).toFixed(1)});
-      return lib.load({region:'eu'});
-    })
-    .then(fp=>{
-      addLog('info','Instance loaded – calling get()');
-      const getStart = performance.now();
-      return fp.get().then(res=>{
-        addLog('success','visitorId resolved', {
-          visitorId: res.visitorId,
-          elapsed:(performance.now()-getStart).toFixed(1)
+      import('https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU')
+        .then(FingerprintJS => {
+          addLog('info', 'Library imported', {elapsed: (performance.now() - importStart).toFixed(1)});
+          return FingerprintJS.load({region: 'eu'});
+        })
+        .then(fp => {
+          addLog('info', 'Instance loaded – calling get()');
+          const getStart = performance.now();
+          return fp.get({extendedResult: true}).then(result => {
+            addLog('success', 'visitorId resolved', {
+              visitorId: result.visitorId,
+              requestId: result.requestId,
+              confidence: result.confidence?.score,
+              incognito: result.incognito,
+              browserName: result.browserName,
+              os: result.os,
+              elapsed: (performance.now() - getStart).toFixed(1)
+            });
+            clearTimeout(watchdog);
+            if (window.AndroidBridge?.onFingerprintGenerated) {
+              try {
+                window.AndroidBridge.onFingerprintGenerated(result.visitorId);
+                addLog('info', 'Called AndroidBridge.onFingerprintGenerated');
+              } catch (e) {
+                addLog('error', 'Bridge call failed', {err: e.message});
+              }
+            }
+            finish(true);
+          });
+        })
+        .catch(err => {
+          addLog('error', 'Exception', {err: err.message || String(err)});
+          clearTimeout(watchdog);
+          finish(false);
         });
-        clearTimeout(watchdog);
-        if (window.AndroidBridge?.onFingerprintGenerated){
-          try{
-            window.AndroidBridge.onFingerprintGenerated(res.visitorId);
-            addLog('info','Called AndroidBridge.onFingerprintGenerated');
-          }catch(e){addLog('error','Bridge call failed',{err:e.message});}
-        }
-        finish(true);
-      });
-    })
-    .catch(err=>{
-      addLog('error','Exception', {err:err.message||String(err)});
-      clearTimeout(watchdog);
-      finish(false);
-    });
-})();
-</script>
+    })();
+  </script>
 </body>
 </html>
