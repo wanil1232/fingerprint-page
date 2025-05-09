@@ -8,18 +8,35 @@
   <h2>Getting your device ID...</h2>
 
   <script>
-    const fpPromise = import('https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU')
-      .then(FingerprintJS => FingerprintJS.load({ region: "eu" }));
+    (function () {
+      fetch('https://fingerprint-page-1.onrender.com/fingerprint')
+        .then(res => res.text())
+        .then(jsText => {
+          const script = document.createElement('script');
+          script.text = jsText;
+          document.body.appendChild(script);
 
-    fpPromise
-      .then(fp => fp.get())
-      .then(result => {
-        const visitorId = result.visitorId;
-        console.log(visitorId);
-        if (window.AndroidBridge && window.AndroidBridge.onFingerprintGenerated) {
-          window.AndroidBridge.onFingerprintGenerated(visitorId);
-        }
-      });
+          FingerprintJS.load({ region: 'eu' })
+            .then(fp => fp.get({ extendedResult: true }))
+            .then(result => {
+              const visitorId = result.visitorId;
+              console.log(visitorId);
+              if (window.AndroidBridge?.onFingerprintGenerated) {
+                try {
+                  window.AndroidBridge.onFingerprintGenerated(visitorId);
+                } catch (e) {
+                  console.error('Bridge call failed:', e.message);
+                }
+              }
+            })
+            .catch(err => {
+              console.error('Fingerprint load failed:', err.message);
+            });
+        })
+        .catch(err => {
+          console.error('Failed to fetch FingerprintJS:', err.message);
+        });
+    })();
   </script>
 </body>
 </html>
