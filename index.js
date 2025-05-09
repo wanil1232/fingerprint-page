@@ -4,20 +4,32 @@ const fetch = require('node-fetch');
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.get('/fingerprint', async (req, res) => {
+// מאפשר לכל מקור לגשת
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+});
+
+// פרוקסי לקובץ הדינמי התקין
+app.get('/fingerprint.js', async (req, res) => {
   try {
-    const libUrl = 'https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU/fingerprint.min.js';
+    const libUrl = 'https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU';
+    const response = await fetch(libUrl);
 
-    // טוען את הספרייה כטקסט (לא module)
-    const scriptResponse = await fetch(libUrl);
-    const scriptText = await scriptResponse.text();
+    if (!response.ok) {
+      res.status(500).send('❌ Failed to fetch FingerprintJS lib');
+      return;
+    }
 
-    res.type('application/javascript').send(scriptText);
+    const moduleCode = await response.text();
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(moduleCode);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).send('❌ Internal server error');
   }
 });
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`✅ Proxy server running at http://localhost:${port}`);
 });
