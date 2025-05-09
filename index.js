@@ -5,7 +5,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // מאפשר לכל מקור לגשת
-app.use((req, res, next) => {
+app.get('/fingerprint', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   next();
 });
