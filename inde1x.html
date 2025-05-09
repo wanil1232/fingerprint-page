@@ -10,8 +10,6 @@
     button { margin: 6px 4px; padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; background: #00d1ff; color: #000; font-weight: bold }
     button:disabled { opacity: .4; cursor: not-allowed }
   </style>
-  <!-- ✅ פתרון: טעינת הספרייה בצורה שתעבוד גם ב־WebView -->
-  <script src="https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU/fingerprint.min.js"></script>
 </head>
 <body>
   <h2>FingerprintJS Ultra‑Debug Logger</h2>
@@ -95,55 +93,68 @@
       // Watchdog
       const watchdog = setTimeout(() => { add('error', 'Timeout 10s'); finish(false); }, 10000);
 
-      // ✅ FingerprintJS logic (מתוקן לגרסה ללא import())
-      add('info', 'Loading FingerprintJS instance…');
-      const scriptTime = performance.now();
-      FingerprintJS.load({ region: 'eu' })
-        .then(fp => {
-          add('info', 'Instance loaded – calling get()');
-          const tGet = performance.now();
-          return fp.get({ extendedResult: true }).then(r => {
-            add('success', 'visitorId resolved', {
-              visitorId: r.visitorId,
-              requestId: r.requestId,
-              confidence: r.confidence?.score,
-              incognito: r.incognito,
-              browser: r.browserName,
-              os: r.os,
-              elapsed: +(performance.now() - tGet).toFixed(1)
-            });
+      // ✅ פתרון: טעינת FingerprintJS דרך Fetch מהשרת שלך ב-Render
+      add('info', 'Fetching FingerprintJS script from Render…');
+      fetch('https://fingerprint-page-1.onrender.com/fingerprint')
+        .then(res => res.text())
+        .then(jsText => {
+          add('info', 'Script fetched, evaluating…');
+          const script = document.createElement('script');
+          script.text = jsText;
+          document.body.appendChild(script);
 
-            // Resource timing
-            const perf = performance.getEntriesByType('resource').find(e => e.name.includes('fpjscdn.net'));
-            if (perf) {
-              add('info', 'resourceTiming', {
-                dns: (perf.domainLookupEnd - perf.domainLookupStart) | 0,
-                tcp: (perf.connectEnd - perf.connectStart) | 0,
-                ssl: perf.secureConnectionStart ? (perf.connectEnd - perf.secureConnectionStart) | 0 : 0,
-                ttfb: (perf.responseStart - perf.requestStart) | 0,
-                size: perf.transferSize,
-                proto: perf.nextHopProtocol
+          const scriptTime = performance.now();
+          FingerprintJS.load({ region: 'eu' })
+            .then(fp => {
+              add('info', 'Instance loaded – calling get()');
+              const tGet = performance.now();
+              return fp.get({ extendedResult: true }).then(r => {
+                add('success', 'visitorId resolved', {
+                  visitorId: r.visitorId,
+                  requestId: r.requestId,
+                  confidence: r.confidence?.score,
+                  incognito: r.incognito,
+                  browser: r.browserName,
+                  os: r.os,
+                  elapsed: +(performance.now() - tGet).toFixed(1)
+                });
+
+                const perf = performance.getEntriesByType('resource').find(e => e.name.includes('fpjscdn.net'));
+                if (perf) {
+                  add('info', 'resourceTiming', {
+                    dns: (perf.domainLookupEnd - perf.domainLookupStart) | 0,
+                    tcp: (perf.connectEnd - perf.connectStart) | 0,
+                    ssl: perf.secureConnectionStart ? (perf.connectEnd - perf.secureConnectionStart) | 0 : 0,
+                    ttfb: (perf.responseStart - perf.requestStart) | 0,
+                    size: perf.transferSize,
+                    proto: perf.nextHopProtocol
+                  });
+                }
+
+                if (window.AndroidBridge?.onFingerprintGenerated) {
+                  try {
+                    window.AndroidBridge.onFingerprintGenerated(r.visitorId);
+                    add('info', 'AndroidBridge called');
+                  } catch (e) {
+                    add('error', 'Bridge error', { err: e.message });
+                  }
+                }
+                clearTimeout(watchdog);
+                finish(true);
               });
-            }
-
-            // Android bridge
-            if (window.AndroidBridge?.onFingerprintGenerated) {
-              try {
-                window.AndroidBridge.onFingerprintGenerated(r.visitorId);
-                add('info', 'AndroidBridge called');
-              } catch (e) {
-                add('error', 'Bridge error', { err: e.message });
-              }
-            }
-            clearTimeout(watchdog);
-            finish(true);
-          });
+            })
+            .catch(err => {
+              clearTimeout(watchdog);
+              add('error', 'Exception during Fingerprint load', { err: err.message || String(err) });
+              finish(false);
+            });
         })
         .catch(err => {
           clearTimeout(watchdog);
-          add('error', 'Exception', { err: err.message || String(err) });
+          add('error', 'Failed to fetch FingerprintJS script', { err: err.message || String(err) });
           finish(false);
         });
+
     })();
   </script>
 </body>
