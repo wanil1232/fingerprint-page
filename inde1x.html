@@ -1,109 +1,152 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>FingerprintJS – Ultra Debug</title>
-<style>
- body{font-family:Arial,Helvetica;background:#111;color:#eee;padding:20px}
- h2{color:#00d1ff}
- pre{background:#222;padding:12px;border-radius:6px;max-height:380px;overflow:auto}
- button{margin:6px 4px;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;background:#00d1ff;color:#000;font-weight:bold}
- button:disabled{opacity:.4;cursor:not-allowed}
-</style>
+  <meta charset="UTF-8">
+  <title>FingerprintJS Ultra‑Debug Logger</title>
+  <style>
+    body { font-family: Arial, Helvetica; background: #111; color: #eee; padding: 20px }
+    h2 { color: #00d1ff }
+    pre { background: #222; padding: 12px; border-radius: 6px; max-height: 380px; overflow: auto }
+    button { margin: 6px 4px; padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; background: #00d1ff; color: #000; font-weight: bold }
+    button:disabled { opacity: .4; cursor: not-allowed }
+  </style>
 </head>
 <body>
-<h2>FingerprintJS Ultra‑Debug Logger</h2>
-<p id="status">Initializing…</p>
-<pre id="log"></pre>
-<button id="downloadBtn" disabled>Download logs</button>
-<button id="copyBtn" disabled>Copy</button>
+  <h2>FingerprintJS Ultra‑Debug Logger</h2>
+  <p id="status">Initializing…</p>
+  <pre id="log"></pre>
+  <button id="downloadBtn" disabled>Download logs</button>
+  <button id="copyBtn" disabled>Copy</button>
 
-<script>
-(function(){
-  /* ---------- helpers ---------- */
-  const $=id=>document.getElementById(id);
-  const logBox=$('log'), status=$('status'), dl=$('downloadBtn'), cp=$('copyBtn');
-  const logs=[], t0=performance.now();
-  const mark=t=>+(performance.now()-t0).toFixed(1);
-  const add=(type,msg,x={})=>{logs.push({ts:Date.now(),rel:mark(),type,msg,...x});
-    logBox.textContent=JSON.stringify(logs,null,2);};
+  <script>
+    (function(){
+      const $ = id => document.getElementById(id);
+      const logBox = $('log'), status = $('status'), dl = $('downloadBtn'), cp = $('copyBtn');
+      const logs = [], t0 = performance.now();
+      const mark = () => +(performance.now() - t0).toFixed(1);
+      const add = (type, msg, x = {}) => {
+        logs.push({ ts: Date.now(), rel: mark(), type, msg, ...x });
+        logBox.textContent = JSON.stringify(logs, null, 2);
+      };
 
-  function finish(ok){
-    status.textContent=ok?'✔️ Finished – send the file':'❌ Error – send the file';
-    [dl,cp].forEach(b=>b.disabled=false);
-    const blob=new Blob([JSON.stringify(logs,null,2)],{type:'application/json'}),
-          url=URL.createObjectURL(blob);
-    dl.onclick=()=>{const a=document.createElement('a');a.href=url;a.download='fp_log.json';a.click();};
-    cp.onclick=async()=>{await navigator.clipboard.writeText(JSON.stringify(logs,null,2));cp.textContent='Copied!';};
-  }
+      function finish(ok) {
+        status.textContent = ok ? '✔️ Finished – send the file' : '❌ Error – send the file';
+        [dl, cp].forEach(b => b.disabled = false);
+        const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' }),
+              url  = URL.createObjectURL(blob);
+        dl.onclick = () => {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'fp_log.json';
+          a.click();
+        };
+        cp.onclick = async () => {
+          await navigator.clipboard.writeText(JSON.stringify(logs, null, 2));
+          cp.textContent = 'Copied!';
+        };
+      }
 
-  /* ---------- global error hooks ---------- */
-  window.onerror=(m,s,l,c,e)=>add('error','window.onerror',{msg:m,line:l,col:c,err:e?.message});
-  window.onunhandledrejection=e=>add('error','unhandledrejection',{reason:e.reason});
-  document.addEventListener('visibilitychange',()=>add('info','visibilitychange',{state:document.visibilityState}));
+      // Error & visibility hooks
+      window.onerror = (m, s, l, c, e) => add('error', 'window.onerror', { msg: m, line: l, col: c, err: e?.message });
+      window.onunhandledrejection = e => add('error', 'unhandledrejection', { reason: e.reason });
+      document.addEventListener('visibilitychange', () => add('info', 'visibilitychange', { state: document.visibilityState }));
 
-  /* ---------- env snapshot ---------- */
-  add('info','env',{
-    ua:navigator.userAgent,
-    language:navigator.language,
-    platform:navigator.platform,
-    cores:navigator.hardwareConcurrency,
-    mem:navigator.deviceMemory||'?GB',
-    screen:`${screen.width}x${screen.height}`,
-    connection:navigator.connection?{
-      type:navigator.connection.effectiveType,
-      down:navigator.connection.downlink,
-      rtt:navigator.connection.rtt
-    }:'n/a'
-  });
-
-  /* nav‑timing */
-  const nav=performance.getEntriesByType('navigation')[0];
-  if(nav){
-    add('info','navTiming',{
-      dns:(nav.domainLookupEnd-nav.domainLookupStart)|0,
-      tcp:(nav.connectEnd-nav.connectStart)|0,
-      ssl:(nav.secureConnectionStart?nav.connectEnd-nav.secureConnectionStart:0)|0,
-      ttfb:(nav.responseStart-nav.requestStart)|0,
-      dom:(nav.domComplete-nav.startTime)|0
-    });
-  }
-
-  /* ---------- watchdog ---------- */
-  const watchdog=setTimeout(()=>{add('error','Timeout 10s');finish(false);},1e4);
-
-  /* ---------- FP flow (זהה לקוד המקורי) ---------- */
-  add('info','import script…');
-  import('https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU')
-    .then(lib=>{
-      add('info','script imported',{delta:mark()});
-      return lib.load({region:'eu'});
-    })
-    .then(fp=>{
-      add('info','instance loaded',{delta:mark()});
-      const tGet=performance.now();
-      return fp.get({extendedResult:true}).then(r=>{
-        add('success','visitorId',Object.assign({
-          elapsed:+(performance.now()-tGet).toFixed(1)
-        },{
-          visitorId:r.visitorId,
-          requestId:r.requestId,
-          confidence:r.confidence?.score,
-          incognito:r.incognito,
-          browser:r.browserName,
-          os:r.os
-        }));
-        if(window.AndroidBridge?.onFingerprintGenerated){
-          try{window.AndroidBridge.onFingerprintGenerated(r.visitorId);
-              add('info','AndroidBridge.called');}
-          catch(e){add('error','Bridge failed',{err:e.message});}
+      // Environment snapshot
+      const ua = navigator.userAgent;
+      const isAndroid = /Android (\d+[\.\d]*)/.exec(ua);
+      const androidVer = isAndroid ? isAndroid[1] : 'n/a';
+      const model = /Android.*;\s([\w\-]+)\sBuild/i.exec(ua)?.[1] || 'n/a';
+      const chromeVer = /Chrome\/([\d.]+)/.exec(ua)?.[1] || 'n/a';
+      const conn = navigator.connection || {};
+      add('info', 'device info', {
+        ua,
+        chromeVer,
+        androidVer,
+        model,
+        browserLang: navigator.language,
+        platform: navigator.platform,
+        cores: navigator.hardwareConcurrency,
+        ram: navigator.deviceMemory || '?GB',
+        dpi: window.devicePixelRatio,
+        screen: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        onLine: navigator.onLine,
+        network: {
+          type: conn.effectiveType || 'n/a',
+          down: conn.downlink || 'n/a',
+          rtt: conn.rtt || 'n/a',
+          saveData: conn.saveData || false
         }
-        clearTimeout(watchdog);
-        finish(true);
       });
-    })
-    .catch(err=>{clearTimeout(watchdog);add('error','Exception',{err:err.message});finish(false);});
-})();
-</script>
+
+      const nav = performance.getEntriesByType('navigation')[0];
+      if (nav) {
+        add('info', 'navigationTiming', {
+          dns: (nav.domainLookupEnd - nav.domainLookupStart) | 0,
+          tcp: (nav.connectEnd - nav.connectStart) | 0,
+          ssl: nav.secureConnectionStart ? (nav.connectEnd - nav.secureConnectionStart) | 0 : 0,
+          ttfb: (nav.responseStart - nav.requestStart) | 0,
+          dom: (nav.domComplete - nav.startTime) | 0
+        });
+      }
+
+      // Watchdog
+      const watchdog = setTimeout(() => { add('error', 'Timeout 10s'); finish(false); }, 10000);
+
+      // FingerprintJS logic (exactly like original code + logging)
+      add('info', 'Importing FingerprintJS script…');
+      const scriptTime = performance.now();
+      import('https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU')
+        .then(lib => {
+          add('info', 'Library imported', { delta: +(performance.now() - scriptTime).toFixed(1) });
+          return lib.load({ region: 'eu' });
+        })
+        .then(fp => {
+          add('info', 'Instance loaded – calling get()');
+          const tGet = performance.now();
+          return fp.get({ extendedResult: true }).then(r => {
+            add('success', 'visitorId resolved', {
+              visitorId: r.visitorId,
+              requestId: r.requestId,
+              confidence: r.confidence?.score,
+              incognito: r.incognito,
+              browser: r.browserName,
+              os: r.os,
+              elapsed: +(performance.now() - tGet).toFixed(1)
+            });
+
+            // Resource timing
+            const perf = performance.getEntriesByType('resource').find(e => e.name.includes('fpjscdn.net'));
+            if (perf) {
+              add('info', 'resourceTiming', {
+                dns: (perf.domainLookupEnd - perf.domainLookupStart) | 0,
+                tcp: (perf.connectEnd - perf.connectStart) | 0,
+                ssl: perf.secureConnectionStart ? (perf.connectEnd - perf.secureConnectionStart) | 0 : 0,
+                ttfb: (perf.responseStart - perf.requestStart) | 0,
+                size: perf.transferSize,
+                proto: perf.nextHopProtocol
+              });
+            }
+
+            // Android bridge
+            if (window.AndroidBridge?.onFingerprintGenerated) {
+              try {
+                window.AndroidBridge.onFingerprintGenerated(r.visitorId);
+                add('info', 'AndroidBridge called');
+              } catch (e) {
+                add('error', 'Bridge error', { err: e.message });
+              }
+            }
+            clearTimeout(watchdog);
+            finish(true);
+          });
+        })
+        .catch(err => {
+          clearTimeout(watchdog);
+          add('error', 'Exception', { err: err.message || String(err) });
+          finish(false);
+        });
+    })();
+  </script>
 </body>
 </html>
