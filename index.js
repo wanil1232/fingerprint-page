@@ -4,14 +4,14 @@ const fetch = require('node-fetch');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// מאפשר לכל מקור לגשת
-app.get('/fingerprint', async (req, res, next) => {
+// ✅ CORS fix – הגדרת next כמו שצריך
+app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   next();
 });
 
-// פרוקסי לקובץ הדינמי התקין
-app.get('/fingerprint.js', async (req, res) => {
+// ✅ Route נכון
+app.get('/fingerprint', async (req, res) => {
   try {
     const libUrl = 'https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU';
     const response = await fetch(libUrl);
