@@ -10,6 +10,8 @@
     button { margin: 6px 4px; padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; background: #00d1ff; color: #000; font-weight: bold }
     button:disabled { opacity: .4; cursor: not-allowed }
   </style>
+  <!-- ✅ פתרון: טעינת הספרייה בצורה שתעבוד גם ב־WebView -->
+  <script src="https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU/fingerprint.min.js"></script>
 </head>
 <body>
   <h2>FingerprintJS Ultra‑Debug Logger</h2>
@@ -93,14 +95,10 @@
       // Watchdog
       const watchdog = setTimeout(() => { add('error', 'Timeout 10s'); finish(false); }, 10000);
 
-      // FingerprintJS logic (exactly like original code + logging)
-      add('info', 'Importing FingerprintJS script…');
+      // ✅ FingerprintJS logic (מתוקן לגרסה ללא import())
+      add('info', 'Loading FingerprintJS instance…');
       const scriptTime = performance.now();
-      import('https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU')
-        .then(lib => {
-          add('info', 'Library imported', { delta: +(performance.now() - scriptTime).toFixed(1) });
-          return lib.load({ region: 'eu' });
-        })
+      FingerprintJS.load({ region: 'eu' })
         .then(fp => {
           add('info', 'Instance loaded – calling get()');
           const tGet = performance.now();
