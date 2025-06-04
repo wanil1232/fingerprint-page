@@ -16,7 +16,7 @@
           script.text = jsText;
           document.body.appendChild(script);
 
-          FingerprintJS.load({ region: 'eu' })
+          FingerprintJS.load()
             .then(fp => fp.get({ extendedResult: true }))
             .then(result => {
               const visitorId = result.visitorId;
