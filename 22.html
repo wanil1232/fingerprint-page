@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>FingerprintJS Example</title>
-  <script src="https://fpjscdn.net/v3/qZV8F8LLroCuYQjSkLiY" async></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -31,7 +30,7 @@
   <div id="output">Loading...</div>
   <pre id="log"></pre>
 
-  <script>
+  <script type="module">
     const output = document.getElementById('output');
     const logBox = document.getElementById('log');
 
@@ -40,32 +39,33 @@
       logBox.textContent += `> ${message}\n`;
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      FingerprintJS.load({ region: 'eu' })
-        .then(fp => {
-          log("✅ FingerprintJS loaded");
-          return fp.get({ extendedResult: true });
-        })
-        .then(result => {
-          const visitorId = result.visitorId;
-          output.textContent = `🆔 Device ID: ${visitorId}`;
-          log(`🆔 visitorId: ${visitorId}`);
+    import('https://fpjscdn.net/v3/qZV8F8LLroCuYQjSkLiY')
+      .then(FingerprintJS => {
+        log("✅ FingerprintJS script loaded via import()");
+        return FingerprintJS.load({ region: 'eu' });
+      })
+      .then(fp => {
+        log("✅ FingerprintJS agent loaded");
+        return fp.get({ extendedResult: true });
+      })
+      .then(result => {
+        const visitorId = result.visitorId;
+        output.textContent = `🆔 Device ID: ${visitorId}`;
+        log(`🆔 visitorId: ${visitorId}`);
 
-          // שליחה לגשר אנדרואיד אם יש
-          if (window.AndroidBridge?.onFingerprintGenerated) {
-            try {
-              window.AndroidBridge.onFingerprintGenerated(visitorId);
-              log("📤 Sent visitorId to Android bridge");
-            } catch (e) {
-              log("❌ Bridge call failed: " + e.message);
-            }
+        if (window.AndroidBridge?.onFingerprintGenerated) {
+          try {
+            window.AndroidBridge.onFingerprintGenerated(visitorId);
+            log("📤 Sent visitorId to Android bridge");
+          } catch (e) {
+            log("❌ Bridge call failed: " + e.message);
           }
-        })
-        .catch(err => {
-          output.textContent = "❌ Error loading FingerprintJS";
-          log("❌ Error: " + err.message);
-        });
-    });
+        }
+      })
+      .catch(err => {
+        output.textContent = "❌ Error loading FingerprintJS";
+        log("❌ Error: " + err.message);
+      });
   </script>
 </body>
 </html>
