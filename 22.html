@@ -42,7 +42,7 @@
     import('https://fpjscdn.net/v3/qZV8F8LLroCuYQjSkLiY')
       .then(FingerprintJS => {
         log("✅ FingerprintJS script loaded via import()");
-        return FingerprintJS.load({ region: 'eu' });
+        return FingerprintJS.load();
       })
       .then(fp => {
         log("✅ FingerprintJS agent loaded");
