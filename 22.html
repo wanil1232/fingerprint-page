@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>FingerprintJS Example</title>
+  <script
+    src="https://fpjscdn.net/v3/qZV8F8LLroCuYQjSkLiY"
+    async
+  ></script>
+</head>
+<body>
+  <h2>Getting your device ID...</h2>
+
+  <script>
+    // מחכה ש-FingerprintJS ייטען
+    window.addEventListener('DOMContentLoaded', function () {
+      FingerprintJS.load({ region: 'eu' })
+        .then(fp => fp.get({ extendedResult: true }))
+        .then(result => {
+          const visitorId = result.visitorId;
+          console.log('Visitor ID:', visitorId);
+
+          // שליחה לאנדרואיד אם קיים bridge
+          if (window.AndroidBridge?.onFingerprintGenerated) {
+            try {
+              window.AndroidBridge.onFingerprintGenerated(visitorId);
+            } catch (e) {
+              console.error('Bridge error:', e.message);
+            }
+          }
+        })
+        .catch(err => {
+          console.error('FingerprintJS failed:', err.message);
+        });
+    });
+  </script>
+</body>
+</html>
