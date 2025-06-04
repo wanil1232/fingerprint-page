@@ -14,7 +14,7 @@ app.use((req, res, next) => {
 // ✅ Proxy + ESBuild bundle of FingerprintJS module
 app.get('/fingerprint', async (req, res) => {
   try {
-    const moduleUrl = 'https://fpjscdn.net/v3/ezVq3gIDSVXFPr67etIU';
+    const moduleUrl = 'https://fpjscdn.net/v3/qZV8F8LLroCuYQjSkLiY';
     const response = await fetch(moduleUrl);
 
     if (!response.ok) {
